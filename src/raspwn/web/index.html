@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soaring Forecast</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root { --bg: #fff; --fg: #1d2330; --muted: #5b6475; --panel: rgba(255,255,255,.94); --line: #d6dbe4; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #11151c; --fg: #e6e9ef; --muted: #9aa3b2; --panel: rgba(22,27,36,.94); --line: #2c3442; }
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #map { position: absolute; inset: 0; }
+  .panel { position: absolute; z-index: 1000; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 12px; box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+  #controls { top: 10px; right: 10px; width: min(320px, calc(100vw - 52px)); display: grid; gap: 8px; }
+  #controls label { display: grid; gap: 2px; color: var(--muted); font-size: 12px; }
+  select, input[type=range] { width: 100%; font: inherit; }
+  select { padding: 4px; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; }
+  .row { display: flex; gap: 6px; align-items: center; }
+  .row button { flex: 0 0 auto; font: inherit; padding: 2px 10px; border-radius: 4px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+  #time-label { font-weight: 600; font-variant-numeric: tabular-nums; }
+  #legend { bottom: 18px; left: 10px; width: min(340px, calc(100vw - 46px)); }
+  #legend .bar { height: 12px; border-radius: 3px; margin: 6px 0 2px; }
+  #legend .ticks { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px;
+    font-variant-numeric: tabular-nums; }
+  #desc { font-weight: 600; }
+  #meta { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="controls" class="panel">
+  <label>Run <select id="run"></select></label>
+  <label>Parameter <select id="param"></select></label>
+  <label>Time (UTC)
+    <div class="row">
+      <button id="prev" aria-label="Previous time">&lsaquo;</button>
+      <input id="time" type="range" min="0" max="0" value="0">
+      <button id="next" aria-label="Next time">&rsaquo;</button>
+    </div>
+    <span id="time-label"></span>
+  </label>
+  <label>Opacity <input id="opacity" type="range" min="0.2" max="1" step="0.05" value="0.75"></label>
+  <div id="meta"></div>
+</div>
+<div id="legend" class="panel">
+  <div id="desc"></div>
+  <div class="bar"></div>
+  <div class="ticks"></div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const map = L.map("map", { zoomControl: true });
+L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+  maxZoom: 15, attribution: "&copy; OpenStreetMap contributors, SRTM | &copy; OpenTopoMap (CC-BY-SA)",
+}).addTo(map);
+
+let manifest = null, runPath = null, overlay = null;
+
+function fmtTime(key) {           // 20261002T1200Z -> Fri 02 Oct 12:00
+  const d = new Date(Date.UTC(+key.slice(0, 4), +key.slice(4, 6) - 1, +key.slice(6, 8),
+                              +key.slice(9, 11), +key.slice(11, 13)));
+  return d.toLocaleString(undefined, { weekday: "short", day: "2-digit", month: "short",
+    hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false });
+}
+
+function savePrefs() {
+  try { localStorage.setItem("raspwn", JSON.stringify({ param: $("param").value, opacity: $("opacity").value })); }
+  catch (e) { /* storage unavailable */ }
+}
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem("raspwn")) || {}; } catch (e) { return {}; }
+}
+
+function draw() {
+  if (!manifest) return;
+  const param = $("param").value, t = manifest.times[+$("time").value];
+  $("time-label").textContent = fmtTime(t);
+  const url = `${runPath}/${param}/${t}.png`;
+  const opacity = +$("opacity").value;
+  if (overlay) overlay.setUrl(url).setOpacity(opacity);
+  else overlay = L.imageOverlay(url, manifest.bounds, { opacity }).addTo(map);
+
+  const p = manifest.params[param];
+  $("desc").textContent = `${p.description}${p.units ? ` (${p.units})` : ""}`;
+  document.querySelector("#legend .bar").style.background = `linear-gradient(to right, ${p.colors.join(",")})`;
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => +(p.vmin + f * (p.vmax - p.vmin)).toFixed(1));
+  document.querySelector("#legend .ticks").innerHTML = ticks.map((v) => `<span>${v}</span>`).join("");
+  savePrefs();
+}
+
+async function openRun(path) {
+  runPath = path;
+  manifest = await (await fetch(`${path}/manifest.json`)).json();
+  const prefs = loadPrefs();
+  const sel = $("param"), keep = sel.value || prefs.param;
+  sel.innerHTML = Object.entries(manifest.params)
+    .map(([k, v]) => `<option value="${k}">${v.description}</option>`).join("");
+  if (keep && manifest.params[keep]) sel.value = keep;
+  if (prefs.opacity) $("opacity").value = prefs.opacity;
+  $("time").max = manifest.times.length - 1;
+  // default to early afternoon (local thermals peak) when available
+  const noon = manifest.times.findIndex((t) => t.slice(9, 11) >= "13");
+  $("time").value = noon >= 0 ? noon : 0;
+  $("meta").textContent = `${manifest.model} · init ${manifest.init} · member ${manifest.member}`;
+  if (overlay) { map.removeLayer(overlay); overlay = null; }
+  map.fitBounds(manifest.bounds);
+  draw();
+}
+
+async function init() {
+  const runs = await (await fetch("runs.json")).json();
+  $("run").innerHTML = runs.slice().reverse().map((r) => `<option value="${r}">${r}</option>`).join("");
+  $("run").onchange = () => openRun($("run").value);
+  $("param").onchange = draw;
+  $("time").oninput = draw;
+  $("opacity").oninput = draw;
+  const step = (d) => { const s = $("time"); s.value = Math.min(+s.max, Math.max(0, +s.value + d)); draw(); };
+  $("prev").onclick = () => step(-1);
+  $("next").onclick = () => step(1);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") step(-1);
+    if (e.key === "ArrowRight") step(1);
+  });
+  if (runs.length) await openRun($("run").value);
+  else $("meta").textContent = "No runs yet.";
+}
+init().catch((e) => { $("meta").textContent = `Failed to load: ${e}`; });
+</script>
+</body>
+</html>

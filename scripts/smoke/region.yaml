@@ -1,0 +1,26 @@
+region:
+  name: smoke
+  map_proj: lambert
+  ref_lat: 39.8
+  ref_lon: -8.0
+  truelat1: 38.0
+  truelat2: 41.5
+  stand_lon: -8.0
+  domains:
+    - {e_we: 50, e_sn: 55, dx: 12000, geog_data_res: lowres}
+forecast:
+  init: 2026-10-01T00
+  start_offset_hours: 6
+  length_hours: 3
+weathernext:
+  path: /smoke/wn.zarr
+  member: 0
+wrf:
+  wps_dir: /opt/WPS
+  wrf_run_dir: /opt/WRF/run
+  geog_data_path: /smoke/geog
+  workdir: /smoke/runs
+  mpi_procs: 4
+  e_vert: 55
+output:
+  dir: /smoke/out

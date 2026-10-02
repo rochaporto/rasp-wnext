@@ -1,0 +1,40 @@
+{#- Rendered by raspwn.pipeline. Variables: region, domains (with derived
+    parent_id/dx), start, end, interval, geog_data_path, constants. -#}
+&share
+ wrf_core         = 'ARW',
+ max_dom          = {{ domains|length }},
+ start_date       = {% for d in domains %}'{{ start }}',{% endfor %}
+ end_date         = {% for d in domains %}'{{ end }}',{% endfor %}
+ interval_seconds = {{ interval }},
+ io_form_geogrid  = 2,
+/
+
+&geogrid
+ parent_id         = {% for d in domains %}{{ d.parent_id }},{% endfor %}
+ parent_grid_ratio = {% for d in domains %}{{ d.ratio }},{% endfor %}
+ i_parent_start    = {% for d in domains %}{{ d.i_start }},{% endfor %}
+ j_parent_start    = {% for d in domains %}{{ d.j_start }},{% endfor %}
+ e_we              = {% for d in domains %}{{ d.e_we }},{% endfor %}
+ e_sn              = {% for d in domains %}{{ d.e_sn }},{% endfor %}
+ geog_data_res     = {% for d in domains %}'{{ d.geog_data_res }}',{% endfor %}
+ dx                = {{ domains[0].dx }},
+ dy                = {{ domains[0].dx }},
+ map_proj          = '{{ region.map_proj }}',
+ ref_lat           = {{ region.ref_lat }},
+ ref_lon           = {{ region.ref_lon }},
+ truelat1          = {{ region.truelat1 }},
+ truelat2          = {{ region.truelat2 }},
+ stand_lon         = {{ region.stand_lon }},
+ geog_data_path    = '{{ geog_data_path }}',
+/
+
+&ungrib
+ out_format = 'WPS',
+ prefix     = 'UNUSED',
+/
+
+&metgrid
+ fg_name         = 'WNEXT',
+ constants_name  = '{{ constants }}',
+ io_form_metgrid = 2,
+/

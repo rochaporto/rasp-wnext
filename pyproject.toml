@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "raspwn"
+version = "0.1.0"
+description = "Open RASP/BLIPMAP-style soaring forecasts with WRF driven by Google WeatherNext"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "xarray>=2024.6",
+    "zarr>=3.0",
+    "obstore>=0.6",
+    "dask>=2024.6",
+    "netCDF4>=1.6",
+    "eccodes>=2.37",
+    "requests>=2.31",
+    "PyYAML>=6",
+    "Jinja2>=3.1",
+    "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+raspwn = "raspwn.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+raspwn = ["templates/*.j2", "web/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,37 @@
+# Example region: central Portugal. Copy this directory to add a region.
+region:
+  name: example
+  map_proj: lambert
+  ref_lat: 39.8
+  ref_lon: -8.0
+  truelat1: 38.0
+  truelat2: 41.5
+  stand_lon: -8.0
+  domains:
+    # outer domain: 9 km, gets lateral boundaries from WeatherNext (25 km)
+    - {e_we: 100, e_sn: 110, dx: 9000}
+    # nest: 3 km, the one rendered as maps
+    - {e_we: 181, e_sn: 211, ratio: 3, i_start: 21, j_start: 20}
+
+forecast:
+  init: latest              # or e.g. 2026-10-02T00 (00/06/12/18Z only)
+  start_offset_hours: 6     # WRF starts at init + 6 h (+ 24 h per day)
+  length_hours: 15          # 06Z..21Z covers the soaring day in Europe
+  days: [0, 1]
+
+weathernext:
+  billing_project: YOUR_GCP_PROJECT   # bucket is requester-pays
+  member: 0                           # or "mean"; see README on ensembles
+  # Uncomment to read a local/other copy instead of the GCS bucket:
+  # path: /data/wn3/predictions.zarr
+
+wrf:
+  wps_dir: /opt/WPS
+  wrf_run_dir: /opt/WRF/run
+  geog_data_path: /data/geog
+  workdir: /data/runs
+  mpi_procs: 8
+  # physics: {bl_pbl_physics: 5, sf_sfclay_physics: 5}   # e.g. MYNN instead of YSU
+
+output:
+  dir: /data/out
